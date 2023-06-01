@@ -18,10 +18,10 @@ dz                  = dx;               % Antenna spacing in the vertical plane
 installation_height = 20;               % The height of the antenna over the ground plane
 delta_psi           = 100/180*pi;       % azimuth beamwidth [rad]
 delta_teta          = 100/180*pi;       % elevation beamwidth [rad]
-teta_point          = 45/180*pi;        % antenna pointing in elevation [rad] 
+teta_point          = 0/180*pi;        % antenna pointing in elevation [rad] 
 psi_point           = 0/180*pi;         % antenna pointing in azimuth [rad]
 
-Ptx_db              = 0;                % Total transmission power [dBm]
+Ptx_db              = -30;                % Total transmission power [dBw]
 eff_ant             = 0.7;              % Antenna efficiency
 T0_ant              = 290;              % Antenna temperature [K]
 T_scene             = 290;              % Scene temperature [K]
@@ -30,18 +30,18 @@ T0                  = 290;              % Temperature at which the noise figure 
 
 %% OFDM parameters
 Ts                = 12e-6;                             % Length of the OFDM symbol [s]
-M                 = 4;                  % QPSK signal constellation size
+M                 = 2;                  % QPSK signal constellation size
 no_of_data_points = 128;                % Number of symbols going out from the source
 block_size        = 128;                % size of each ofdm block = number of subcarriers
 no_of_ifft_points = block_size;         % Points for the FFT/IFFT
 no_of_fft_points  = block_size;
 
 %% Target parameters
-RCS                 = 0.1; % Radar cross section [m^2]
+RCS                 = 1; % Radar cross section [m^2]
 
 % Each line is a target, the colums are the x,y,z position. The center of
 % the reference system is the center of the base station
-p_t                 = [0, 30, -installation_height]; 
+p_t                 = [0, 100, -installation_height]; 
 
 %% Derive some parameters from numbers above
 
@@ -57,9 +57,9 @@ x_s = (0:Nx_tx-1)'*dx; x_s = x_s - mean(x_s); x_s = kron(ones(Nz_tx,1), x_s);
 z_s = (0:Nz_tx-1)'*dz; z_s = z_s - mean(z_s); z_s = kron(z_s, ones(Nx_tx,1));
 y_s = zeros(size(x_s));
 
-N_ant       = length(x_s); % Total number of antennas
-P_tx_ant    = Ptx/N_ant; % Power for each antenna
-Ae          = (lambda^2)/4/pi*G; % Equivalent area for each antenna
+N_ant       = length(x_s);          % Total number of antennas
+P_tx_ant    = Ptx/N_ant;            % Power for each antenna
+Ae          = (lambda^2)/4/pi*G;    % Equivalent area for each antenna
 
 F           = 10^(F_dB/10); % noise figure in linear unit (noise factor)
 Trx         = (F-1)*T0; % Receiver temperature [Kelvin]
@@ -78,6 +78,7 @@ xlabel("x [m]"); ylabel("y [m]"); zlabel("z [m]");
 data_source = randsrc(1, no_of_data_points, 0:M-1);
 
 % Associate to each number of QPSK symbol
+%qpsk_modulated_data = qammod(data_source, M, UnitAveragePower=true);
 qpsk_modulated_data = pskmod(data_source, M);
 
 delta_f             = 1/Ts;     % Spacing between subcarriers
@@ -86,7 +87,7 @@ dt                  = Ts/ovs;   % sampling in fast time [s]
 fs                  = 1/dt;     % Sampling frequency in fast time [Hz];
 t                   = -Ts:dt:Ts;% Fast time axis
 r                   = t*c/2; % Range axis
-rho_rg = c/(2*delta_f*block_size); % Slant range resolution c/2B
+rho_rg              = c/(2*delta_f*block_size); % Slant range resolution c/2B
 
 % In each column there is the signal transmitted in a subcarrier, the final
 % transmitted signal is the sum of all the signals in all the sub-carriers.
@@ -148,10 +149,10 @@ for ii = 1:N_ant
      Drc_n(:,ii)    = conv(Draw_n(:,ii), flip(conj(signal_tx)), "same")*dt;
 end
 
-figure; plot(r, abs(Drc)); grid on; xlabel("Range [m]"); ylabel("Amplitude");
+figure; plot(r, db(Drc)); grid on; xlabel("Range [m]"); ylabel("Amplitude");
 title("Range compressed data for each antenna without noise");
 
-figure; plot(r, abs(Drc_n)); grid on; xlabel("Range [m]"); ylabel("Amplitude");
+figure; plot(r, db(Drc_n)); grid on; xlabel("Range [m]"); ylabel("Amplitude");
 title("Range compressed data for each antenna with noise");
 
 sqrt(Prx)*(Ts*block_size) % Theoretical peak value that I should get
@@ -159,8 +160,8 @@ mean(max(abs(Drc))) % Experimental peak value that I should get
 
 %% Image focusing
 
-x_foc = min(p_t(:,1))-20 : 0.1 : max(p_t(:,1))+20;
-y_foc = min(p_t(:,2))-20 : 0.1 : max(p_t(:,2))+20;
+x_foc = min(p_t(:,1))-30 : 0.1 : max(p_t(:,1))+30;
+y_foc = min(p_t(:,2))-30 : 0.1 : max(p_t(:,2))+30;
 
 [Y,X] = ndgrid(y_foc,x_foc);
 Z = zeros(size(X)); % I decide to focus on ground, but since I have 3D resolution I could focus other planes

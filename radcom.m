@@ -18,23 +18,37 @@ dz                  = dx;               % Antenna spacing in the vertical plane
 installation_height = 20;               % The height of the antenna over the ground plane
 delta_psi           = 100/180*pi;       % azimuth beamwidth [rad]
 delta_teta          = 100/180*pi;       % elevation beamwidth [rad]
-teta_point          = 0/180*pi;        % antenna pointing in elevation [rad] 
+teta_point          = 0/180*pi;         % antenna pointing in elevation [rad] 
 psi_point           = 0/180*pi;         % antenna pointing in azimuth [rad]
 
-Ptx_db              = -30;                % Total transmission power [dBw]
+Ptx_db              = -30;              % Total transmission power [dBw]
 eff_ant             = 0.7;              % Antenna efficiency
 T0_ant              = 290;              % Antenna temperature [K]
 T_scene             = 290;              % Scene temperature [K]
 F_dB                = 3;                % Receiver noise figure [dB]
 T0                  = 290;              % Temperature at which the noise figure is referring to [K]
 
-%% OFDM parameters
-Ts                = 12e-6;                             % Length of the OFDM symbol [s]
-M                 = 2;                  % QPSK signal constellation size
-no_of_data_points = 128;                % Number of symbols going out from the source
-block_size        = 128;                % size of each ofdm block = number of subcarriers
-no_of_ifft_points = block_size;         % Points for the FFT/IFFT
-no_of_fft_points  = block_size;
+%% Parameters for the 5G sub-6 system
+
+B                 = 50e6;               % Bandwidth [Hz]
+u                 = 0;                  % Numerology
+symbolsPerSlot    = 14;                 % Number of symbols for each time slot
+delta_f           = 15e3 * 2^u;         % Sub-carrier spacing (defined in this way by the standard)
+Ts_no_cp          = 1/delta_f;          % Length of the OFDM symbol [s]
+cpPercentage      = 7;                  % Percentage of the symbol dedicated to cyclic prefix
+Ts_tot            = Ts_no_cp*(1+cpPercentage/100); % Total symbol time, including cyclic prefix
+subCarrierInRB    = 12;                 % Number of sub-carrier for each resource block;
+numberOfRB        = ceil(B/(subCarrierInRB*delta_f)); % Total number of RB in frequency;
+totalSubcarriers  = ceil(B/delta_f);    % Total number of sub-carriers
+frameDuration     = 10e-3;              % Duration of the frame [s];
+subframePerFrame  = 10;                 % Number of sub-frame in the frame
+subFrameDuration  = frameDuration/subframePerFrame; % Duration of each sub-frame [s]
+slotsPerSubFrame  = 2^u;                % Number of slots for each sub frame;
+slotDuration      = subFrameDuration/slotsPerSubFrame; % Duration of the slot [s];
+symbolDuration    = slotDuration/symbolsPerSlot; % Duration of each symbol [s];
+
+PRF               = 1/symbolDuration;   % Pulse repetition frequency [Hz]
+M                 = 8;                  % QPSK signal constellation size
 
 %% Target parameters
 RCS                 = 1; % Radar cross section [m^2]
@@ -50,7 +64,7 @@ Nt                  = size(p_t, 1); % Number of targets
 beam_sector         = delta_teta*delta_psi; % [rad^2]
 G                   = eff_ant*4*pi/beam_sector; % Antenna gain
 
-Ptx = 10^(Ptx_db/10);
+Ptx = 10^(Ptx_db/10); %[W]
 
 % Antenna positions
 x_s = (0:Nx_tx-1)'*dx; x_s = x_s - mean(x_s); x_s = kron(ones(Nz_tx,1), x_s);

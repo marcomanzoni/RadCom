@@ -6,7 +6,7 @@ mu0         = 1.25663706e-6;
 e0          = 8.85418782e-12;
 rho_d_kg_m3 = 275; % kg/m^2
 rho_d       = rho_d_kg_m3/1000 % g/cm^3
-W           = 0.01;
+W           = 0.1;
 ew_prime    = 80;
 ew_second   = 13;
 

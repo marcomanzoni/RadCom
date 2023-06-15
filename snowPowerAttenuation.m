@@ -12,9 +12,7 @@ ew_second   = 13;
 
 ed = (1 + 1.7*rho_d + 0.7*rho_d^2);
 es_prime = (0.1*W + 0.8*W^2)*ew_prime + ed;
-es_second = (0.1*W + 0.8*W^2)*ew_second;
-
-
+es_second = (0.1*W + 0.8*W^2)*ew_second; 
 
 alpha = sqrt(mu0/(es_prime*e0))*(es_second*e0/2)*2*pi*f;
 

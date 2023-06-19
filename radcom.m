@@ -9,7 +9,7 @@ load('./lajolla.mat');
 lajolla = flip(lajolla);
 
 %% Antenna system parameter
-f0                  = 4e9;              % Carrier frequency [Hz]
+f0                  = 2.5e9;              % Carrier frequency [Hz]
 c                   = physconst("lightspeed");
 K                   = physconst('boltzmann'); % Boltzmann constant
 lambda              = c/f0;
@@ -34,7 +34,7 @@ T0                  = 290;              % Temperature at which the noise figure 
 %% Parameters for the 5G sub-6 system
 
 B                 = 30e6;               % Bandwidth [Hz]
-u                 = 0;                  % Numerology
+u                 = 2;                  % Numerology
 
 delta_f           = 15e3 * 2^u;         % Sub-carrier spacing (defined in this way by the standard)
 Ts_no_cp          = 1/delta_f;          % Length of the OFDM symbol [s]
@@ -102,17 +102,23 @@ signal_tx = signal_tx_bb;%.*exp(1j*2*pi*f0*t(:));
 
 %% Trajectory of the platform
 
-Sx = (0:Nsymbols-1)*lambda/4;
+vx = 30; % Platform velocity along x [m/s]
+Sx = (0:Nsymbols-1)*vx/PRF;
 Sx = Sx - mean(Sx);
 Sy = zeros(size(Sx));
 Sz = zeros(size(Sx));
+
+As = Sx(end)-Sx(1)
 
 %% Target parameters
 RCS                 = 1; % Radar cross section [m^2]
 
 % Each line is a target, the colums are the x,y,z position. The center of
-% the reference system is the center of the base station
-p_t                 = [0, 100, -installation_height];
+% the reference system is the center of the base station. If you place the
+% target below the ground it is intended under the snow
+
+%p_t                 = [0, 50, -installation_height]; %On the ground
+p_t                 = [0, 50, -installation_height-3]; %three meters under the snow
 
 %% Derive some parameters from numbers above
 
@@ -138,6 +144,9 @@ Trx         = (F-1)*T0;                             % Receiver temperature [Kelv
 T_ant       = eff_ant*T_scene + (1-eff_ant)*T0_ant; % Antenna temperature [Kelvin]
 T_sys       = T_ant + Trx;                          % System temperature [Kelvin]
 N0          = K*T_sys;                              % Noise Power Spectral Density [W/Hz]
+
+% Calculat the one-way attenuation constant in the snow
+alpha = snowPowerAttenuation(f0);
 
 %% Acquisition
 
@@ -166,8 +175,13 @@ for kk = 1:Nsymbols % symbols = slow time samples
             % Antenna pattern
             f = sinc((psi-psi_point)/delta_psi)^2*sinc((teta-teta_point+pi/2)/delta_teta)^2;
 
+            % Calculate the approximate path length under the snow;
+            l = pathLengthUnderSnow(Sx(kk), Sy(kk), Sz(kk), p_t(n,1), p_t(n,2), p_t(n,3), installation_height);
+
+            L = exp(-alpha*l);
+
             % Power density at the target [W/m^2]
-            Si = Ptx./(4*pi*R_tx.^2)*G.*f;
+            Si = Ptx./(4*pi*R_tx.^2)*G.*f*L;
 
             % At the receiver
             delta_x = (Sx(kk)+x_s(ii))-p_t(n,1);
@@ -177,7 +191,7 @@ for kk = 1:Nsymbols % symbols = slow time samples
             R_rx = sqrt(delta_x^2+delta_y^2+delta_z^2);
 
             % Scattered power density at the receiver from each target  [W/m^2]
-            Ss = Si./(4*pi*R_rx.^2).*RCS(n);
+            Ss = Si./(4*pi*R_rx.^2).*RCS(n)*L;
 
             % Power at the receiver from each target [W]
             Prx = Ss*Ae.*f; % f should be computed again for each receiver... approximation
@@ -220,7 +234,7 @@ x_foc = min(p_t(:,1))-30 : 0.1 : max(p_t(:,1))+30;
 y_foc = min(p_t(:,2))-30 : 0.1 : max(p_t(:,2))+30;
 
 [Y,X] = ndgrid(y_foc,x_foc);
-Z = -installation_height*ones(size(X)); % I decide to focus on ground, but since I have 3D resolution I could focus other planes
+Z = p_t(3)*ones(size(X)); % I decide to focus on ground, but since I have 3D resolution I could focus other planes
 
 I = zeros([size(X), Nsymbols]);
 I_n = zeros(size(I));

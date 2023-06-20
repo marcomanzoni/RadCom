@@ -34,7 +34,7 @@ T0                  = 290;              % Temperature at which the noise figure 
 %% Parameters for the 5G sub-6 system
 
 B                 = 30e6;               % Bandwidth [Hz]
-u                 = 2;                  % Numerology
+u                 = 3;                  % Numerology
 
 delta_f           = 15e3 * 2^u;         % Sub-carrier spacing (defined in this way by the standard)
 Ts_no_cp          = 1/delta_f;          % Length of the OFDM symbol [s]
@@ -117,7 +117,7 @@ RCS                 = 1; % Radar cross section [m^2]
 % the reference system is the center of the base station. If you place the
 % target below the ground it is intended under the snow
 
-%p_t                 = [0, 50, -installation_height]; %On the ground
+p_t                 = [0, 50, -installation_height]; %On the ground
 p_t                 = [0, 50, -installation_height-3]; %three meters under the snow
 
 %% Derive some parameters from numbers above
@@ -178,7 +178,7 @@ for kk = 1:Nsymbols % symbols = slow time samples
             % Calculate the approximate path length under the snow;
             l = pathLengthUnderSnow(Sx(kk), Sy(kk), Sz(kk), p_t(n,1), p_t(n,2), p_t(n,3), installation_height);
 
-            L = exp(-alpha*l);
+            L = exp(-2*alpha*l);
 
             % Power density at the target [W/m^2]
             Si = Ptx./(4*pi*R_tx.^2)*G.*f*L;

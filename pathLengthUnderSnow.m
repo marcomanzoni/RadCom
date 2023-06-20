@@ -1,5 +1,11 @@
-function l = pathLengthUnderSnow(Sx, Sy, Sz, px, py, pz, installation_height);
+function l = pathLengthUnderSnow(Sx, Sy, Sz, px, py, pz, installation_height)
 %PATHLENGTHUNDERSNOW Calculate the approximate path length under the snow.
+%Calculate the intersection point of a line with a
+%plane. A line is defined by the equation la + (lb-la)*t where la and lb
+%are 3D vectors representing points belonging to the line. t is a real scalar. 
+% The plane on the other hand, is %defined by the equation p0 + (p1-p0)*u + (p2-p0)*v 
+% where p0,p1,p2 are three points on the plane and u,v are real numbers.
+% Equate the two equations and solve for t,u,v.
 
 
 positionSensor = [Sx; Sy; Sz];

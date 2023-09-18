@@ -72,12 +72,11 @@ title("OFDM Frame"); axis xy tight
 qpsk_modulated_data = pskmod(frame, M);
 
 % Simulate continuous time signal
-fs                  = 2*B;     % Sampling frequency in fast time [Hz];
+fs                  = 4*B;     % Sampling frequency in fast time [Hz];
 dt                  = 1/fs;   % sampling in fast time [s]
 t                   = -Ts_tot:dt:Ts_tot;% Fast time axis
 r                   = t*c/2; % Range axis
 rho_rg              = c/(2*B); % Slant range resolution c/2B
-rho_az = rho_rg;
 
 % Define the frequency domain axis to check the bandwidth occupancy
 NFFT                = 2^nextpow2(length(t));
@@ -105,6 +104,15 @@ title("Autocorrelation of the first transmitted symbol");
 Eg = sum(abs(signal_tx_bb).^2)*dt;
 Pw = Eg/Ts_tot;
 signal_tx = signal_tx_bb./sqrt(Pw);%.*exp(1j*2*pi*f0*t(:));
+%% Trajectory of the platform
+
+vx = 30; % Platform velocity along x [m/s]
+Sx = (0:Nsymbols-1)*vx/PRF;
+Sx = Sx - mean(Sx);
+Sy = zeros(size(Sx));
+Sz = zeros(size(Sx));
+
+As = Sx(end)-Sx(1)
 
 %% Target parameters
 RCS                 = 1; % Radar cross section [m^2]
@@ -113,20 +121,10 @@ RCS                 = 1; % Radar cross section [m^2]
 % the reference system is the center of the base station. If you place the
 % target below the ground it is intended under the snow
 
-%p_t                 = [0, 150, -installation_height]; %On the ground
-p_t                 = [0, 150, -installation_height-1]; %three meters under the snow
+%p_t                 = [0, 50, -installation_height]; %On the ground
+p_t                 = [0, 50, -installation_height-2]; %three meters under the snow
 
-R_t = sqrt(p_t(1).^2 + p_t(2).^2 + p_t(3).^2);
-
-%% Trajectory of the platform
-As = lambda/2/rho_az*R_t;
-vp = 2; % [m/s]
-
-Sx = -As/2 : vp/PRF :As/2;% linspace(-As/2, As/2, Nsymbols);
-Sy = 0*Sx;
-Sz = 0*Sx;
-
-Ntau = length(Sx)
+R = sqrt(p_t(1).^2 + p_t(1).^2 )
 
 %% Derive some parameters from numbers above
 
@@ -159,18 +157,14 @@ alpha       = snowPowerAttenuationLuca(f0,W);
 
 %% Acquisition
 
-Draw    = zeros(length(t), N_ant, Ntau, 'single');
-Draw_n  = zeros(length(t), N_ant, Ntau, 'single');
-Drc     = zeros(length(t), N_ant, Ntau, 'single');
-Drc_n   = zeros(length(t), N_ant, Ntau, 'single');
+Draw    = zeros(length(t), N_ant, Nsymbols);
+Draw_n  = zeros(length(t), N_ant, Nsymbols);
+Drc     = zeros(length(t), N_ant, Nsymbols);
+Drc_n   = zeros(length(t), N_ant, Nsymbols);
 
-idx_symbol = 1;
-
-for kk = 1:Ntau % slow time samples
+for kk = 1:Nsymbols % symbols = slow time samples
     for ii = 1:N_ant % Antennae
         for n = 1:Nt % Targets
-
-            fprintf("%d / %d \n", kk, Ntau);
 
             % In transmission
             delta_x = Sx(kk)-p_t(n,1);
@@ -211,7 +205,7 @@ for kk = 1:Ntau % slow time samples
 
             tau             = (R_tx+R_rx)/c; % Delay from distance (to change in case of bistatic)
 
-            s = sqrt(Prx)*interp1(t', signal_tx(:,idx_symbol), t'-tau, "cubic", 0).*exp(-1j*2*pi*f0*tau);
+            s = sqrt(Prx)*interp1(t', signal_tx(:,kk), t'-tau, "cubic", 0).*exp(-1j*2*pi*f0*tau);
             %y = autocorrelation(s, signal_tx(:,kk), dt);
             %figure; plot(r, abs(y));
 
@@ -227,13 +221,8 @@ for kk = 1:Ntau % slow time samples
         Draw_n(:,ii, kk)    = Draw(:,ii, kk) + n; % and add it to the raw data
 
         % Range compression for the ii-th antenna
-        Drc(:, ii, kk)      = conv(Draw(:,ii,kk), flip(conj(signal_tx(:,idx_symbol))), "same")*dt;
-        Drc_n(:, ii, kk)    = conv(Draw_n(:,ii,kk), flip(conj(signal_tx(:,idx_symbol))), "same")*dt;
-
-        idx_symbol = idx_symbol + 1;
-        if idx_symbol > Nsymbols
-            idx_symbol = 1;
-        end
+        Drc(:, ii, kk)      = conv(Draw(:,ii,kk), flip(conj(signal_tx(:,kk))), "same")*dt;
+        Drc_n(:, ii, kk)    = conv(Draw_n(:,ii,kk), flip(conj(signal_tx(:,kk))), "same")*dt;
     end
 end
 
@@ -254,12 +243,12 @@ y_foc = min(p_t(:,2))-30 : 0.1 : max(p_t(:,2))+30;
 [Y,X] = ndgrid(y_foc,x_foc);
 Z = p_t(3)*ones(size(X)); % I decide to focus on ground, but since I have 3D resolution I could focus other planes
 
-I = zeros(size(X), 'single');
+I = zeros([size(X), Nsymbols]);
 I_n = zeros(size(I));
 
-for kk = 1:Ntau % symbols = slow time samples
+for kk = 1:Nsymbols % symbols = slow time samples
 
-    fprintf("Focusing slow-time %d/%d: ", kk, Ntau);
+    fprintf("Focusing slow-time %d/%d: ", kk, Nsymbols);
 
     delta_x = Sx(kk)-X;
     delta_y = Sy(kk)-Y;
@@ -276,23 +265,25 @@ for kk = 1:Ntau % symbols = slow time samples
 
         tau   = (R_tx + R_rx)/c; % Delay from distance (to change in case of bistatic)
 
-        I = I + interp1(t, Drc(:, ii, kk) , tau,"linear",NaN).*exp(+1j.*2*pi*f0*tau);
-        I_n = I_n + interp1(t, Drc_n(:,ii,kk), tau,"linear",NaN).*exp(+1j.*2*pi*f0*tau);
+        I(:,:,kk) = I(:,:,kk) + interp1(t, Drc(:, ii, kk) , tau,"linear",NaN).*exp(+1j.*2*pi*f0*tau);
+        I_n(:,:,kk) = I_n(:,:,kk) + interp1(t, Drc_n(:,ii,kk), tau,"linear",NaN).*exp(+1j.*2*pi*f0*tau);
     end
     fprintf("Done. \n");
 end
 
-% figure; imagesc(x_foc, y_foc, abs(I(:,:,1))); axis xy tight; title("MIMO Antenna without noise");
-% xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
-% 
-% figure; imagesc(x_foc, y_foc, abs(I_n(:,:,1))); axis xy tight; title("MIMO Antenna with noise");
-% xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
-
-
-figure; imagesc(x_foc, y_foc, abs(I)); axis xy tight; title("SAR image without noise");
+figure; imagesc(x_foc, y_foc, abs(I(:,:,1))); axis xy tight; title("MIMO Antenna without noise");
 xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
 
-figure; imagesc(x_foc, y_foc, abs(I_n)); axis xy tight; title("SAR image with noise");
+figure; imagesc(x_foc, y_foc, abs(I_n(:,:,1))); axis xy tight; title("MIMO Antenna with noise");
+xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
+
+I_SAR = sum(I,3);
+I_SAR_n = sum(I_n,3);
+
+figure; imagesc(x_foc, y_foc, abs(I_SAR)); axis xy tight; title("SAR image without noise");
+xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
+
+figure; imagesc(x_foc, y_foc, abs(I_SAR_n)); axis xy tight; title("SAR image with noise");
 xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
 
 

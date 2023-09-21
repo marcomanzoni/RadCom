@@ -116,6 +116,3 @@ title({"Range compression", sprintf("QAM with %d symbols", M)});
 
 
 
-
-
-

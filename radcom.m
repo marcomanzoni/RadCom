@@ -20,7 +20,7 @@ Nx_tx               = 1;                % Number of antennae in the horizontal p
 Nz_tx               = 1;                % Number of antennae in the vertical plane
 dx                  = lambda/4;         % Antenna spacing in the horizontal plane
 dz                  = dx;               % Antenna spacing in the vertical plane
-installation_height = 50;               % The height of the antenna over the ground plane
+installation_height = 140;               % The height of the antenna over the ground plane
 delta_psi           = 100/180*pi;       % azimuth beamwidth [rad]
 delta_teta          = 100/180*pi;       % elevation beamwidth [rad]
 teta_point          = 0/180*pi;         % antenna pointing in elevation [rad]
@@ -114,7 +114,7 @@ RCS                 = 1; % Radar cross section [m^2]
 % target below the ground it is intended under the snow
 
 %p_t                 = [0, 150, -installation_height]; %On the ground
-p_t                 = [0, 150, -installation_height-1]; %three meters under the snow
+p_t                 = [0, 150, -installation_height-0]; %three meters under the snow
 
 R_t = sqrt(p_t(1).^2 + p_t(2).^2 + p_t(3).^2);
 

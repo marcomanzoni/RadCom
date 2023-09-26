@@ -1,4 +1,4 @@
-% v0.1 RadCom simulator
+% v0.2 RadCom simulator
 % @Author: Marco Manzoni (marco.manzoni@polimi.it)
 
 clear all;

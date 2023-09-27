@@ -20,7 +20,7 @@ Nx_tx               = 1;                % Number of antennae in the horizontal p
 Nz_tx               = 1;                % Number of antennae in the vertical plane
 dx                  = lambda/4;         % Antenna spacing in the horizontal plane
 dz                  = dx;               % Antenna spacing in the vertical plane
-installation_height = 50;               % The height of the antenna over the ground plane
+installation_height = 140;               % The height of the antenna over the ground plane
 delta_psi           = 100/180*pi;       % azimuth beamwidth [rad]
 delta_teta          = 70/180*pi;       % elevation beamwidth [rad]
 teta_point          = 45/180*pi;         % antenna pointing in elevation [rad]
@@ -113,7 +113,7 @@ RCS                 = 1; % Radar cross section [m^2]
 % the reference system is the center of the base station. If you place the
 % target below the ground it is intended under the snow
 
-snow_depth = 2;
+snow_depth = 1;
 
 %p_t                 = [0, 150, -installation_height]; %On the ground
 p_t                 = [0, 150, -installation_height-snow_depth]; %three meters under the snow
@@ -250,10 +250,10 @@ mean(max(abs(Drc(:,:,1)))) % Experimental peak value that I get
 
 %% Image focusing
 
-Nres = 3;
+Nres = 5;
 
-x_foc = min(p_t(:,1))-Nres*rho_rg : 0.05*rho_rg : max(p_t(:,1))+Nres*rho_rg;
-y_foc = min(p_t(:,2))-Nres*rho_rg : 0.05*rho_rg : max(p_t(:,2))+Nres*rho_rg;
+x_foc = min(p_t(:,1))-Nres*rho_rg : 0.1*rho_rg : max(p_t(:,1))+Nres*rho_rg;
+y_foc = min(p_t(:,2))-Nres*rho_rg : 0.1*rho_rg : max(p_t(:,2))+Nres*rho_rg;
 
 [Y,X] = ndgrid(y_foc,x_foc);
 Z = p_t(3)*ones(size(X)); % I decide to focus on ground, but since I have 3D resolution I could focus other planes
@@ -293,12 +293,11 @@ end
 % xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
 
 
-figure; imagesc(x_foc, y_foc, abs(I)); axis xy tight; title({sprintf("Depth under snow = %.2f m", snow_depth), sprintf("UAV altitude = %.2f m", installation_height)});
-xlabel("x [m]"); ylabel("y [m]"); colormap(lajolla);
+figure; imagesc(x_foc, y_foc, abs(I)); axis xy tight; title({});
+xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
 
-figure; imagesc(x_foc, y_foc, abs(I_n)); axis xy tight; title({sprintf("Depth under snow = %.2f m", snow_depth), sprintf("UAV altitude = %.2f m", installation_height)});
-xlabel("x [m]"); ylabel("y [m]"); colormap(lajolla); axis equal tight
-exportgraphics(gca, fullfile("C:\Users\manzoni\OneDrive - Politecnico di Milano\Conferenze\[2024] EuSAR\Immagini", sprintf("SAR_noise_%.2f_%d.pdf", snow_depth, installation_height)));
+figure; imagesc(x_foc, y_foc, abs(I_n)); axis xy tight; title("SAR image with noise");
+xlabel("x [m]"); ylabel("y [m]"); colorbar; colormap(lajolla);
 
 
 

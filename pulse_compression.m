@@ -1,5 +1,5 @@
 clear all;
-close all;
+%close all;
 clc;
 
 %% Antenna system parameter
@@ -11,7 +11,8 @@ lambda              = c/f0;
 %% Parameters for the 5G sub-6 system
 
 B                 = 40e6;               % Bandwidth [Hz]
-u                 = 3;                  % Numerology
+u                 = 0;                  % Numerology
+rho_rg            = c/2/B;
 
 delta_f           = 15e3 * 2^u;         % Sub-carrier spacing (defined in this way by the standard)
 Ts_no_cp          = 1/delta_f;          % Length of the OFDM symbol [s]
@@ -35,7 +36,7 @@ symbolsPerSlot    = 14;                 % Number of symbols for each time slot
 symbolDuration    = slotDuration/symbolsPerSlot; % Duration of each symbol [s];
 
 PRF               = 1/symbolDuration;   % Pulse repetition frequency [Hz]
-M                 = 256;                  % QAM signal constellation size. !!!!!!!!!CHANGE THIS!!!!!!
+M                 = 4;                  % QAM signal constellation size. !!!!!!!!!CHANGE THIS!!!!!!
 
 % Generation of the data
 frame = randsrc(totalSubcarriers, Nsymbols, 0:M-1);
@@ -45,10 +46,11 @@ qpsk_modulated_data = qammod(frame, M, UnitAveragePower=true);
 %qpsk_modulated_data = pskmod(frame, M);
 
 % Simulate continuous time signal
-fs                  = 10*B;     % Sampling frequency in fast time [Hz];
+fs                  = 30*B;     % Sampling frequency in fast time [Hz];
 dt                  = 1/fs;   % sampling in fast time [s]
 t                   = -Ts_tot:dt:Ts_tot;% Fast time axis
 r                   = t*c/2; % Range axis
+dr = mean(diff(r));
 
 % Along the first dimension I have the signal transmitted for a symbol in a
 % sub-carrier, in the second simension I sweep the symbols (same
@@ -58,14 +60,18 @@ subCarrierIndex = (0:totalSubcarriers-1); subCarrierIndex = floor(subCarrierInde
 modulationMatrix = exp(1j.*2*pi*t'*subCarrierIndex*delta_f);
 signal_tx_bb = modulationMatrix*qpsk_modulated_data.*rectpuls(t'/Ts_tot);
 
-%%
+%% Pulse compression
+
+clc;
+
+N = 5;
 
 % I take only one OFDM symbol
-s  = signal_tx_bb(:,1);
+s  = signal_tx_bb(:,1:N);
 
 % Normalize its power
 Es = sum(abs(s).^2)*dt;
-s  = s/sqrt(Es/Ts_tot);
+s  = s./sqrt(Es/Ts_tot);
 
 % Number of freq points
 Nf = 2^nextpow2(length(t));
@@ -78,13 +84,34 @@ Drc_f    = idft(SS,f_ax,t); % Back in time domain
 df       = f_ax(2)-f_ax(1);
 Drc_f    = Drc_f*df*Nf; % Adjust once again the amplitudes
 
-Drc_t    = conv2(s,flipud(conj(s)),'same')*dt; % Just to check, make the conv in time domain
+% Pulse compression with convolution in time domain
+Drc_t = zeros(size(s));
+for ii = 1:size(s,2)
+    Drc_t(:,ii) = conv(s(:,ii),flipud(conj(s(:,ii))),'same')*dt;
+end
+Drc_t = mean(abs(Drc_t),2);
+%Drc_t = conv2(s,flipud(conj(s)),'same')*dt; % Just to check, make the conv in time domain
+
+[~, indexRes] = min(abs(r-rho_rg));
+[~, indexZero] = min(abs(r));
+delta = indexRes-indexZero;
+indMainLobe = indexZero-delta : indexZero+delta;
+indTenRes = indexZero-50*delta : indexZero+50*delta;
+indOutside = [1:indexZero-delta-1, indexZero+delta+1:length(Drc_t)];
+
+PSLR_time       = 20*log10(max(abs(Drc_t(indOutside)))/max(abs(Drc_t(indMainLobe))))
+
+powerMainLobe   = sum(abs(Drc_t(indMainLobe)).^2)*dr;
+powerTotal      = sum(abs(Drc_t(indTenRes)).^2)*dr;
+ISLR_time       = 10*log10((powerTotal-powerMainLobe)/powerMainLobe)
 
 % The should be (almost) equal. If the bandwidth of the simulation is
 % infinite they are perfectly the same
-figure; plot(r, db(abs(Drc_t)./max(abs(Drc_t)))); hold on; plot(r, db(abs(Drc_f)./max(abs(Drc_f))));
+figure; plot(r, db(abs(Drc_t)./max(abs(Drc_t)))); hold on; %plot(r, db(abs(Drc_f)./max(abs(Drc_f))));
+plot([r(indMainLobe(1)), r(indMainLobe(1))], [-70, 0], 'r--');
+plot([r(indMainLobe(end)), r(indMainLobe(end))], [-70, 0], 'r--');
 
-% Inversion (no matched filtering)
+% Inversion filter (no matched filtering)
 Si      = (1./S).*rectpuls(f_ax(:)/B);
 
 % Make the inversion itself
@@ -96,20 +123,20 @@ Drc_i   = idft(SSi,f_ax,t);
 % Normalize again the amplitudes
 Drc_i   = Drc_i*df*Nf;
 
+PSLR_inv = 20*log10(max(abs(Drc_i(indOutside)))/max(abs(Drc_i(indMainLobe))))
+
+powerMainLobe   = sum(abs(Drc_i(indMainLobe)).^2)*dr;
+powerTotal      = sum(abs(Drc_i(indTenRes)).^2)*dr;
+ISLR_inv       = 10*log10((powerTotal-powerMainLobe)/powerMainLobe)
+
 % Plot overlapping with the previous
 plot(r,db(abs(Drc_i)./max(abs(Drc_i))));
-xlim([-50*c/2/B 50*c/2/B]);
+xlim([-30*c/2/B 30*c/2/B]); ylim([-60 0]);
 
-legend("Correlation in time domain", "Correlation in frequency domain", "Inversion", 'location','best');
+legend("Matched Filter", "Inversion Filter", 'location','northeast');
 xlabel("Range [m]");
 ylabel("Amplitude [dB]");
 title({"Range compression", sprintf("QAM with %d symbols", M)});
-
-
-
-
-
-
 
 
 
